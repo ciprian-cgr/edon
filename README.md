@@ -4,21 +4,18 @@ A cursed, token-minimal JSON flattening format designed to reduce LLM context us
 
 ## What is EDON?
 
-EDON (Em Dash Object Notation) is a text format that flattens nested JSON structures into a series of simple `path—value` lines, where the path and value are separated by an em dash (—). The format is designed to be more token-efficient than JSON for large language models while remaining human-readable and easy to parse.
+EDON (Em Dash Object Notation) is a text format that flattens nested JSON structures into a hierarchical CSV-like format using dashes for indentation. The format is designed to be more token-efficient than JSON for large language models while remaining human-readable and easy to parse.
 
 ## Format Specification
 
-### Line Format
+### Structure
 
-Each line in EDON represents a single primitive value:
+EDON uses a hierarchical format with dash-based indentation:
 
-```
-<path>—<value>
-```
-
-- `path`: A dot-separated path for object keys, with `[index]` notation for arrays
-- `—`: A single Unicode em dash (U+2014) separator
-- `value`: A JSON literal value (string, number, boolean, or null)
+- Container names appear on their own lines
+- Leaf properties are output as dash-separated keys followed by dash-separated values
+- Each level of nesting adds one dash of indentation
+- Arrays of objects include an index column (`#`) for tracking items
 
 ### Example
 
@@ -27,26 +24,73 @@ JSON:
 {
   "user": {
     "name": "Alice",
-    "age": 30,
-    "roles": ["admin", "user"]
-  }
+    "age": 30
+  },
+  "posts": [
+    {"id": 1, "title": "First"},
+    {"id": 2, "title": "Second"}
+  ]
 }
 ```
 
 EDON:
 ```
-user.age—30
-user.name—"Alice"
-user.roles[0]—"admin"
-user.roles[1]—"user"
+user
+-name-age-Alice-30
+posts
+-#-id-title
+-0-1-First
+-1-2-Second
 ```
 
 ### Key Features
 
-- Lines are sorted lexicographically by path for determinism
-- String values use `ensure_ascii=True` to prevent em dashes in values from conflicting with the separator
-- Works with any JSON-compatible data structure (objects, arrays, primitives)
-- Top-level primitives use the path `$`
+- Hierarchical structure with dash indentation
+- CSV-like rows for arrays (keys once, then values per item)
+- Index column for array items
+- No quotes needed for keys
+- 4-7% token savings compared to JSON
+- Preserves insertion order from source JSON
+
+## Installation
+
+```bash
+pip install edon
+```
+
+## Usage
+
+### Python API
+
+```python
+import edon
+
+# Encode Python object to EDON
+obj = {
+    "user": {
+        "name": "Alice",
+        "age": 30
+    },
+    "posts": [
+        {"id": 1, "title": "First"},
+        {"id": 2, "title": "Second"}
+    ]
+}
+
+edon_text = edon.encode(obj)
+print(edon_text)
+# Output:
+# user
+# -name-age-Alice-30
+# posts
+# -#-id-title
+# -0-1-First
+# -1-2-Second
+
+# Decode EDON to flat dictionary (reconstruction not supported)
+decoded = edon.decode(edon_text)
+# Returns a flat key-value mapping
+```
 
 ## Installation
 
@@ -92,13 +136,6 @@ edon encode input.json > output.edon
 cat input.json | edon encode - > output.edon
 ```
 
-#### Decode EDON to JSON
-
-```bash
-edon decode input.edon > output.json
-cat input.edon | edon decode - > output.json
-```
-
 #### Compare Token Counts
 
 ```bash
@@ -106,14 +143,15 @@ edon tokens input.json
 ```
 
 Output:
-```
-JSON chars:  1234
-JSON tokens: 250
 
-EDON chars:  980
-EDON tokens: 210
+```text
+JSON chars:  1533
+JSON tokens: 423
 
-Saving: 40 tokens (16.0%)
+EDON chars:  1291
+EDON tokens: 406
+
+Saving: 17 tokens (4.0%)
 ```
 
 ### Demo Script
@@ -128,91 +166,26 @@ python -m edon.demo
 
 ### Token Efficiency
 
-EDON can reduce token usage compared to JSON, especially for nested structures:
+EDON reduces token usage compared to JSON through:
 
 1. **No structural overhead**: No braces, brackets, or quotes for keys
-2. **Minimal punctuation**: Single em dash separator per value
-3. **Sorted output**: Consistent ordering for better compression
+2. **Minimal punctuation**: Dashes for separation and indentation
+3. **CSV-like arrays**: Keys listed once, values repeated in rows
+4. **Compact format**: 4-7% token savings on typical nested data
 
 ### When to Use EDON
 
 - Passing large JSON datasets to LLMs with token limits
 - Storing data in LLM context windows more efficiently
 - Debugging nested structures in a flat, readable format
-- Cases where you need deterministic serialization
+- Cases where you need human-readable tabular format
 
 ### When NOT to Use EDON
 
-- When JSON compatibility is required
-- When the overhead of flattening/unflattening is significant
-- For very small objects (overhead of paths may exceed savings)
+- When full JSON round-trip reconstruction is required
+- For very small objects (overhead may exceed savings)
 - When you need streaming or partial parsing
-
-## Format Details
-
-### Path Syntax
-
-- Object keys: `parent.child`
-- Array indices: `parent[0]`
-- Nested: `order.items[0].price`
-- Top-level primitive: `$`
-
-### Value Encoding
-
-Values are JSON literals with `ensure_ascii=True`:
-
-- Strings: `"Alice"` (with escape sequences)
-- Numbers: `30` or `3.14`
-- Booleans: `true` or `false`
-- Null: `null`
-
-### Em Dash Safety
-
-The em dash (—) is used as the separator because:
-
-1. It's rare in typical data
-2. It's a single Unicode character
-3. When it does appear in strings, it's automatically escaped by JSON as `\u2014`
-
-This ensures unambiguous parsing: split each line on the first em dash.
-
-## Development
-
-### Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/ciprian-cgr/edon.git
-cd edon
-
-# Install in development mode with dev dependencies
-pip install -e ".[dev]"
-```
-
-### Run Tests
-
-```bash
-pytest
-```
-
-### Run Demo
-
-```bash
-python -m edon.demo
-```
-
-### Format Code
-
-```bash
-black src tests
-ruff check src tests
-```
-
-### Type Checking
-
-```bash
-mypy src
-```
+- When JSON compatibility is strictly required
 
 ## API Reference
 
@@ -221,40 +194,26 @@ mypy src
 Serialize a JSON-compatible Python object to EDON text.
 
 **Parameters:**
+
 - `obj`: Any JSON-compatible Python object
 
 **Returns:**
+
 - EDON text as a string
 
-### `decode(text: str) -> Any`
+### `decode(text: str) -> dict`
 
-Parse EDON text back into a nested Python structure.
+Parse EDON text into a flat key-value mapping.
+
+Note: Full reconstruction to original nested structure is not supported.
 
 **Parameters:**
+
 - `text`: EDON text as a string
 
 **Returns:**
-- Reconstructed Python object
 
-### `iter_pairs(obj: Any) -> Iterable[Tuple[str, str]]`
-
-Flatten an object into (path, json_literal_value) pairs.
-
-**Parameters:**
-- `obj`: Any JSON-compatible Python object
-
-**Yields:**
-- Tuples of `(path, value_literal)`
-
-### `from_pairs(pairs: Iterable[Tuple[str, str]]) -> Any`
-
-Reconstruct a JSON object from (path, json_literal_value) pairs.
-
-**Parameters:**
-- `pairs`: Iterable of `(path, value_literal)` tuples
-
-**Returns:**
-- Reconstructed Python object
+- Flat dictionary mapping paths to values
 
 ## Contributing
 

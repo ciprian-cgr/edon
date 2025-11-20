@@ -8,12 +8,9 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-try:
-    import tiktoken
-except ImportError:
-    tiktoken = None
+import tiktoken
 
-from .codec import encode, decode
+from edon.codec import decode, encode
 
 
 def cmd_encode(args: argparse.Namespace) -> int:
