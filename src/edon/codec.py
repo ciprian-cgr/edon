@@ -2,66 +2,20 @@
 EDON codec - Em Dash Object Notation encoding and decoding.
 
 This module provides functions to convert between JSON-compatible Python objects
-and EDON text format, which flattens nested structures into path—value lines.
+and EDON text format, which uses em dashes as separators in a table-like structure.
 """
 
 import json
-import re
-from typing import Any, Iterable, Tuple, Dict, List, Union
-
-
-def iter_pairs(obj: Any, prefix: str = "") -> Iterable[Tuple[str, str]]:
-    """
-    Flatten a JSON-compatible object into (path, json_literal_value) pairs.
-
-    Args:
-        obj: A JSON-compatible Python object (dict, list, or primitive).
-        prefix: Internal parameter for tracking the current path.
-
-    Yields:
-        Tuples of (path, value_literal) where value_literal is a JSON string.
-
-    Example:
-        >>> list(iter_pairs({"a": 1, "b": [2, 3]}))
-        [('a', '1'), ('b[0]', '2'), ('b[1]', '3')]
-    """
-    if isinstance(obj, dict):
-        if not obj:
-            # Empty dict - emit a marker
-            path = prefix if prefix else "$"
-            yield path, "{}"
-        else:
-            for key in sorted(obj.keys()):
-                new_prefix = f"{prefix}.{key}" if prefix else key
-                yield from iter_pairs(obj[key], new_prefix)
-    elif isinstance(obj, list):
-        if not obj:
-            # Empty list - emit a marker
-            path = prefix if prefix else "$"
-            yield path, "[]"
-        else:
-            for i, item in enumerate(obj):
-                new_prefix = f"{prefix}[{i}]"
-                yield from iter_pairs(item, new_prefix)
-    else:
-        # Primitive value (string, number, boolean, null)
-        path = prefix if prefix else "$"
-        value_literal = json.dumps(obj, ensure_ascii=True, separators=(",", ":"))
-        yield path, value_literal
+from typing import Any, Dict, List, Tuple, Union
 
 
 def encode(obj: Any) -> str:
     """
     Serialize a JSON-compatible Python object to EDON text.
 
-    The output is a series of lines in the format:
-        path—value
-
-    Where:
-    - path uses dots for object keys and brackets for array indices
-    - — is a single Unicode em dash (U+2014)
-    - value is a JSON literal with ensure_ascii=True
-    - Lines are sorted lexicographically by path
+    The output uses em dashes (—) as separators in a table-like format:
+    - For nested containers: —<container_id>—<parent_id>—<key_or_index>
+    - For primitive values: —<container_id>—<key_or_index>—<value>
 
     Args:
         obj: A JSON-compatible Python object.
@@ -70,143 +24,92 @@ def encode(obj: Any) -> str:
         EDON text as a string.
 
     Example:
-        >>> encode({"user": {"name": "Alice", "age": 30}})
-        'user.age—30\\nuser.name—"Alice"'
+        >>> encode({"x": 1})
+        '—0—x—1'
+        >>> encode({"user": {"name": "Alice"}})
+        '—1—0—user\\n—1—name—"Alice"'
     """
-    pairs = list(iter_pairs(obj))
-    pairs.sort(key=lambda p: p[0])
-    lines = [f"{path}—{value}" for path, value in pairs]
-    return "\n".join(lines)
+    # First pass: assign container IDs
+    container_map = {}  # id(object) -> container_id
+    next_id = [1]  # Start at 1, root is always 0
 
+    def assign_ids(node: Any, parent_id: int, key: Union[str, int]) -> None:
+        """Recursively assign container IDs to nested objects/arrays."""
+        if isinstance(node, (dict, list)):
+            if id(node) not in container_map:
+                container_id = next_id[0]
+                next_id[0] += 1
+                container_map[id(node)] = container_id
 
-def _parse_path(path: str) -> List[Union[str, int]]:
-    """
-    Parse a path string into a list of components (keys and indices).
+                # Recurse into children
+                if isinstance(node, dict):
+                    for k, v in node.items():
+                        assign_ids(v, container_id, k)
+                else:  # list
+                    for i, v in enumerate(node):
+                        assign_ids(v, container_id, i)
 
-    Args:
-        path: A path string like "user.items[0].name"
+    # Root container is always ID 0
+    if isinstance(obj, (dict, list)):
+        container_map[id(obj)] = 0
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                assign_ids(v, 0, k)
+        else:  # list
+            for i, v in enumerate(obj):
+                assign_ids(v, 0, i)
 
-    Returns:
-        List of components, where strings are object keys and ints are array indices.
+    # Second pass: generate EDON lines
+    lines = []
 
-    Example:
-        >>> _parse_path("user.items[0].name")
-        ['user', 'items', 0, 'name']
-    """
-    if path == "$":
-        return []
-
-    components = []
-    # Split by dots and brackets
-    # Pattern: match either a word or [number]
-    pattern = r'([^.\[\]]+)|\[(\d+)\]'
-    matches = re.findall(pattern, path)
-
-    for key, idx in matches:
-        if key:
-            components.append(key)
-        elif idx:
-            components.append(int(idx))
-
-    return components
-
-
-def from_pairs(pairs: Iterable[Tuple[str, str]]) -> Any:
-    """
-    Reconstruct a JSON object from (path, json_literal_value) pairs.
-
-    Args:
-        pairs: Iterable of (path, value_literal) tuples.
-
-    Returns:
-        A reconstructed Python object (dict, list, or primitive).
-
-    Example:
-        >>> from_pairs([('a', '1'), ('b[0]', '2')])
-        {'a': 1, 'b': [2]}
-    """
-    root = None
-    root_is_primitive = False
-
-    for path, value_literal in pairs:
-        # Check if this is an empty collection marker
-        if value_literal == "{}":
-            value = {}
-            is_empty_collection = True
-        elif value_literal == "[]":
-            value = []
-            is_empty_collection = True
+    def generate_lines(node: Any, container_id: int) -> None:
+        """Generate EDON lines for a container and its contents."""
+        if isinstance(node, dict):
+            for key in sorted(node.keys()):
+                value = node[key]
+                # JSON-encode dict keys to distinguish them from list indices
+                key_str = json.dumps(key, ensure_ascii=True)
+                if isinstance(value, (dict, list)) and len(value) > 0:
+                    # Non-empty nested container declaration
+                    child_id = container_map[id(value)]
+                    lines.append(f"—{child_id}—{container_id}—{key_str}")
+                    generate_lines(value, child_id)
+                elif isinstance(value, (dict, list)) and len(value) == 0:
+                    # Empty collection - treat as primitive value
+                    value_str = json.dumps(value, ensure_ascii=True, separators=(",", ":"))
+                    lines.append(f"—{container_id}—{key_str}—{value_str}")
+                else:
+                    # Primitive value
+                    value_str = json.dumps(value, ensure_ascii=True, separators=(",", ":"))
+                    lines.append(f"—{container_id}—{key_str}—{value_str}")
+        elif isinstance(node, list):
+            for idx, value in enumerate(node):
+                if isinstance(value, (dict, list)) and len(value) > 0:
+                    # Non-empty nested container declaration
+                    child_id = container_map[id(value)]
+                    lines.append(f"—{child_id}—{container_id}—{idx}")
+                    generate_lines(value, child_id)
+                elif isinstance(value, (dict, list)) and len(value) == 0:
+                    # Empty collection - treat as primitive value
+                    value_str = json.dumps(value, ensure_ascii=True, separators=(",", ":"))
+                    lines.append(f"—{container_id}—{idx}—{value_str}")
+                else:
+                    # Primitive value
+                    value_str = json.dumps(value, ensure_ascii=True, separators=(",", ":"))
+                    lines.append(f"—{container_id}—{idx}—{value_str}")
         else:
-            value = json.loads(value_literal)
-            is_empty_collection = False
+            # Top-level primitive
+            value_str = json.dumps(node, ensure_ascii=True, separators=(",", ":"))
+            lines.append(f"—0—$—{value_str}")
 
-        components = _parse_path(path)
+    if isinstance(obj, (dict, list)):
+        generate_lines(obj, 0)
+    else:
+        # Top-level primitive
+        value_str = json.dumps(obj, ensure_ascii=True, separators=(",", ":"))
+        lines.append(f"—0—$—{value_str}")
 
-        # Handle top-level value (primitive or empty collection)
-        if not components:
-            root = value
-            root_is_primitive = True
-            continue
-
-        # Initialize root if needed
-        if root is None:
-            # Determine if root should be dict or list
-            if isinstance(components[0], int):
-                root = []
-            else:
-                root = {}
-
-        # Navigate to the parent of the target location
-        current = root
-        for i, component in enumerate(components[:-1]):
-            next_component = components[i + 1]
-
-            if isinstance(component, str):
-                # Current should be a dict
-                if not isinstance(current, dict):
-                    raise ValueError(f"Expected dict at {component}, got {type(current)}")
-
-                if component not in current:
-                    # Determine what to create based on next component
-                    if isinstance(next_component, int):
-                        current[component] = []
-                    else:
-                        current[component] = {}
-
-                current = current[component]
-            else:  # isinstance(component, int)
-                # Current should be a list
-                if not isinstance(current, list):
-                    raise ValueError(f"Expected list at [{component}], got {type(current)}")
-
-                # Extend list if necessary
-                while len(current) <= component:
-                    current.append(None)
-
-                if current[component] is None:
-                    # Determine what to create based on next component
-                    if isinstance(next_component, int):
-                        current[component] = []
-                    else:
-                        current[component] = {}
-
-                current = current[component]
-
-        # Set the final value
-        final_component = components[-1]
-        if isinstance(final_component, str):
-            if not isinstance(current, dict):
-                raise ValueError(f"Expected dict for key {final_component}, got {type(current)}")
-            current[final_component] = value
-        else:  # isinstance(final_component, int)
-            if not isinstance(current, list):
-                raise ValueError(f"Expected list for index [{final_component}], got {type(current)}")
-            # Extend list if necessary
-            while len(current) <= final_component:
-                current.append(None)
-            current[final_component] = value
-
-    return root
+    return "\n".join(lines)
 
 
 def decode(text: str) -> Any:
@@ -214,12 +117,7 @@ def decode(text: str) -> Any:
     Parse EDON text back into a nested Python structure.
 
     Each non-empty line must be in the format:
-        path—value
-
-    Where:
-    - path is parsed into components (keys and indices)
-    - — is a single Unicode em dash (U+2014)
-    - value is a JSON literal
+        —<container_id>—<key_or_parent>—<value_or_key>
 
     Args:
         text: EDON text as a string.
@@ -228,20 +126,177 @@ def decode(text: str) -> Any:
         A reconstructed Python object (dict, list, or primitive).
 
     Example:
-        >>> decode('user.age—30\\nuser.name—"Alice"')
-        {'user': {'age': 30, 'name': 'Alice'}}
+        >>> decode('—0—x—1')
+        {'x': 1}
+        >>> decode('—1—0—user\\n—1—name—"Alice"')
+        {'user': {'name': 'Alice'}}
     """
-    pairs = []
-    for line in text.split("\n"):
-        line = line.strip()
-        if not line:
+    if not text.strip():
+        return None
+
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+
+    # Container structure: {container_id: {'type': 'dict'|'list', 'parent': id, 'key': key, 'data': {}}}
+    containers = {}
+    seen_containers = set()  # Track which container IDs we've seen
+
+    # First pass: identify all lines and categorize them
+    parsed_lines = []
+    for line in lines:
+        parts = line.split("—")
+        if len(parts) < 4:
+            raise ValueError(f"Invalid EDON line: {line}")
+
+        # Remove empty first element (line starts with —)
+        parts = parts[1:]
+
+        if len(parts) != 3:
+            raise ValueError(f"Invalid EDON line: {line}")
+
+        try:
+            container_id = int(parts[0])
+        except ValueError:
+            raise ValueError(f"Invalid EDON line (container_id must be integer): {line}")
+
+        second_field = parts[1]
+        third_field = parts[2]
+
+        # A line is a container declaration if:
+        # 1. This container_id hasn't been seen before, AND
+        # 2. The container_id is NOT 0 (root is never declared), AND
+        # 3. The second field is numeric (parent ID)
+        is_declaration = False
+        if container_id != 0 and container_id not in seen_containers:
+            try:
+                parent_id = int(second_field)
+                is_declaration = True
+                seen_containers.add(container_id)
+
+                # Create container entry
+                containers[container_id] = {
+                    'type': None,
+                    'parent': parent_id,
+                    'key': third_field,
+                    'data': None
+                }
+            except ValueError:
+                pass
+
+        if not is_declaration:
+            # It's a value line
+            parsed_lines.append(('value', container_id, second_field, third_field))
+
+    # Initialize root container
+    if 0 not in containers:
+        containers[0] = {'type': None, 'parent': None, 'key': None, 'data': None}
+
+    # Second pass: process value lines to determine container types and populate data
+    for line_type, container_id, key_or_index, value_str in parsed_lines:
+        # Ensure container exists
+        if container_id not in containers:
+            containers[container_id] = {'type': None, 'parent': None, 'key': None, 'data': None}
+
+        # Special case: top-level primitive
+        if key_or_index == "$":
+            value = json.loads(value_str)
+            return value
+
+        # Determine container type based on key/index
+        # If it's a JSON string (starts with "), it's a dict key
+        if key_or_index.startswith('"'):
+            # It's a dict
+            if containers[container_id]['type'] is None:
+                containers[container_id]['type'] = 'dict'
+                containers[container_id]['data'] = {}
+        else:
+            # Try to parse as integer - if successful, it's a list index
+            try:
+                index = int(key_or_index)
+                # It's numeric, so this is a list
+                if containers[container_id]['type'] is None:
+                    containers[container_id]['type'] = 'list'
+                    containers[container_id]['data'] = []
+            except ValueError:
+                # It's a non-quoted, non-numeric string - treat as dict key
+                if containers[container_id]['type'] is None:
+                    containers[container_id]['type'] = 'dict'
+                    containers[container_id]['data'] = {}
+
+    # Third pass: populate values
+    for line_type, container_id, key_or_index, value_str in parsed_lines:
+        value = json.loads(value_str)
+        container = containers[container_id]
+
+        if container['type'] == 'dict':
+            # JSON-decode the key if it's encoded
+            if key_or_index.startswith('"'):
+                key = json.loads(key_or_index)
+            else:
+                key = key_or_index
+            container['data'][key] = value
+        elif container['type'] == 'list':
+            index = int(key_or_index)
+            # Extend list if needed
+            while len(container['data']) <= index:
+                container['data'].append(None)
+            container['data'][index] = value
+
+    # Fourth pass: build hierarchy by inserting containers into their parents
+    for container_id in sorted(containers.keys(), reverse=True):  # Process bottom-up
+        if container_id == 0:
             continue
 
-        # Split on the first em dash
-        if "—" not in line:
-            raise ValueError(f"Invalid EDON line (missing em dash): {line}")
+        info = containers[container_id]
+        if info['parent'] is None:
+            continue
 
-        path, value_literal = line.split("—", 1)
-        pairs.append((path, value_literal))
+        parent = containers[info['parent']]
+        key_or_index = info['key']
 
-    return from_pairs(pairs)
+        # Determine parent type if not set based on the key format
+        if parent['type'] is None:
+            if key_or_index.startswith('"'):
+                parent['type'] = 'dict'
+                parent['data'] = {}
+            else:
+                try:
+                    int(key_or_index)
+                    parent['type'] = 'list'
+                    parent['data'] = []
+                except ValueError:
+                    parent['type'] = 'dict'
+                    parent['data'] = {}
+
+        # Insert child into parent
+        child_data = containers[container_id]['data']
+        if parent['type'] == 'dict':
+            # JSON-decode the key if it's encoded
+            if key_or_index.startswith('"'):
+                key = json.loads(key_or_index)
+            else:
+                key = key_or_index
+            parent['data'][key] = child_data
+        elif parent['type'] == 'list':
+            index = int(key_or_index)
+            while len(parent['data']) <= index:
+                parent['data'].append(None)
+            parent['data'][index] = child_data
+
+    return containers[0]['data']
+
+
+# Maintain backward compatibility
+def iter_pairs(obj: Any, prefix: str = "") -> List[Tuple[str, str]]:
+    """
+    Legacy function for backward compatibility.
+    Note: The new EDON format doesn't use path-based pairs anymore.
+    """
+    raise NotImplementedError("iter_pairs is not supported in the new EDON format")
+
+
+def from_pairs(pairs: List[Tuple[str, str]]) -> Any:
+    """
+    Legacy function for backward compatibility.
+    Note: The new EDON format doesn't use path-based pairs anymore.
+    """
+    raise NotImplementedError("from_pairs is not supported in the new EDON format")
