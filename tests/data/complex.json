@@ -1,0 +1,256 @@
+{
+  "university": {
+    "name": "Aurelius Institute of Advanced Studies",
+    "founded": 1884,
+    "campuses": [
+      {
+        "campus_id": "C-01",
+        "name": "North Campus",
+        "location": {
+          "city": "Velostra",
+          "country": "Hadar",
+          "coordinates": {
+            "lat": 48.112,
+            "lon": 14.551
+          }
+        },
+        "faculties": [
+          {
+            "faculty_id": "F-ENG",
+            "name": "Engineering",
+            "departments": [
+              {
+                "dept_id": "D-COMP",
+                "name": "Computer Science",
+                "head": {
+                  "id": "P-7782",
+                  "name": "Dr. Lena Corvax",
+                  "research_interests": [
+                    "distributed systems",
+                    "compilers",
+                    "AI interpretability"
+                  ]
+                },
+                "programs": [
+                  {
+                    "program_id": "PRG-CS-BS",
+                    "degree": "BSc",
+                    "courses": [
+                      {
+                        "course_id": "CS101",
+                        "title": "Introduction to Algorithms",
+                        "credits": 6,
+                        "sections": [
+                          {
+                            "section_id": "CS101-01",
+                            "instructor": "Dr. Ivar Holin",
+                            "schedule": {
+                              "days": ["Mon", "Wed"],
+                              "room": "B210",
+                              "time": "10:00-12:00"
+                            }
+                          },
+                          {
+                            "section_id": "CS101-02",
+                            "instructor": "Prof. Mira Estren",
+                            "schedule": {
+                              "days": ["Tue", "Thu"],
+                              "room": "B215",
+                              "time": "14:00-16:00"
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "course_id": "CS340",
+                        "title": "Machine Learning Systems",
+                        "credits": 8,
+                        "assignments": [
+                          {
+                            "assignment_id": "A1",
+                            "title": "Train a model",
+                            "due_date": "2025-03-10",
+                            "weights": {
+                              "accuracy": 0.6,
+                              "efficiency": 0.2,
+                              "report": 0.2
+                            }
+                          },
+                          {
+                            "assignment_id": "A2",
+                            "title": "Distributed training experiment",
+                            "due_date": "2025-04-01",
+                            "weights": {
+                              "scaling": 0.5,
+                              "analysis": 0.3,
+                              "presentation": 0.2
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "laboratories": [
+                  {
+                    "lab_id": "LAB-AI",
+                    "name": "AI Research Lab",
+                    "equipment": {
+                      "servers": [
+                        {
+                          "id": "SRV-01",
+                          "gpu_count": 8,
+                          "ram_gb": 1024,
+                          "installed_models": [
+                            "gpt-neo",
+                            "vicuna-13b",
+                            "falcon-40b"
+                          ]
+                        },
+                        {
+                          "id": "SRV-02",
+                          "gpu_count": 4,
+                          "ram_gb": 512,
+                          "installed_models": [
+                            "llama2-7b",
+                            "t5-large"
+                          ]
+                        }
+                      ],
+                      "robots": [
+                        {
+                          "robot_id": "RB-01",
+                          "type": "mobile",
+                          "sensors": ["lidar", "imu", "camera"]
+                        },
+                        {
+                          "robot_id": "RB-02",
+                          "type": "manipulator",
+                          "sensors": ["force", "vision"]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "dept_id": "D-MECH",
+                "name": "Mechanical Engineering",
+                "projects": [
+                  {
+                    "project_id": "PRJ-684",
+                    "name": "Lightweight Drone Frame",
+                    "budget": 120000,
+                    "team": [
+                      {"id": "S-11", "name": "Alex Vorn"},
+                      {"id": "S-89", "name": "Jin Mara"},
+                      {"id": "S-33", "name": "Lira Pend"}
+                    ]
+                  },
+                  {
+                    "project_id": "PRJ-901",
+                    "name": "Thermal Stress Modeling",
+                    "budget": 85000,
+                    "team": [
+                      {"id": "S-45", "name": "Kara Helin"},
+                      {"id": "S-78", "name": "Dael Torr"}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "campus_id": "C-02",
+        "name": "South Campus",
+        "location": {
+          "city": "Velostra",
+          "country": "Hadar",
+          "coordinates": {
+            "lat": 47.912,
+            "lon": 14.440
+          }
+        },
+        "facilities": {
+          "library": {
+            "name": "Grand Library of Velostra",
+            "volumes": 1800000,
+            "digital_archive": {
+              "journals": ["JMLR", "Nature AI", "Systems Review"],
+              "theses": [
+                {
+                  "id": "TH-AI-442",
+                  "title": "Scaling Laws in Transformer Models",
+                  "author": "Rin Solen",
+                  "year": 2023
+                },
+                {
+                  "id": "TH-SYS-105",
+                  "title": "Reliable Distributed Consensus",
+                  "author": "Karel Dun",
+                  "year": 2021
+                }
+              ]
+            }
+          },
+          "sports_center": {
+            "fields": ["soccer", "basketball", "archery"],
+            "memberships": [
+              {
+                "student_id": "ST-1001",
+                "active": true,
+                "metrics": {
+                  "visits_month": 14,
+                  "favorite_sport": "archery"
+                }
+              },
+              {
+                "student_id": "ST-1234",
+                "active": false,
+                "metrics": {
+                  "visits_month": 0,
+                  "favorite_sport": null
+                }
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "governance": {
+      "board_members": [
+        {
+          "id": "BM-01",
+          "name": "Aren Folst",
+          "role": "Chair",
+          "terms": [
+            {"start": 2018, "end": 2022},
+            {"start": 2022, "end": 2026}
+          ]
+        },
+        {
+          "id": "BM-02",
+          "name": "Lena Vor",
+          "role": "Treasurer",
+          "terms": [
+            {"start": 2020, "end": 2024}
+          ]
+        }
+      ],
+      "budget": {
+        "allocations": [
+          {"area": "research", "amount": 42000000},
+          {"area": "facilities", "amount": 16000000},
+          {"area": "scholarships", "amount": 9000000}
+        ],
+        "revenue_sources": {
+          "tuition": 0.62,
+          "government_grants": 0.28,
+          "private_donations": 0.1
+        }
+      }
+    }
+  }
+}
