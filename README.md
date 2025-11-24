@@ -2,7 +2,7 @@
 
 A cursed, token-minimal JSON flattening format designed to reduce LLM context usage.
 
-## **Please don't use this in production. If you really want something to replace JSON, use Markdown, or consider your life choices and stick to JSON.**
+## **Please don't use this in production. If you really want something to replace JSON, use Markdown, or maybe stick to JSON. You should probably stick to JSON.**
 
 ## What is EDON?
 
