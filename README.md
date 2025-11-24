@@ -89,42 +89,7 @@ print(edon_text)
 
 # Decode EDON to flat dictionary (reconstruction not supported)
 decoded = edon.decode(edon_text)
-# Returns a flat key-value mapping
-```
-
-## Installation
-
-```bash
-pip install edon
-```
-
-## Usage
-
-### Python API
-
-```python
-import edon
-
-# Encode Python object to EDON
-obj = {
-    "user": {
-        "name": "Alice",
-        "age": 30,
-        "roles": ["admin", "user"]
-    }
-}
-
-edon_text = edon.encode(obj)
-print(edon_text)
-# Output:
-# user.age—30
-# user.name—"Alice"
-# user.roles[0]—"admin"
-# user.roles[1]—"user"
-
-# Decode EDON back to Python object
-decoded = edon.decode(edon_text)
-assert decoded == obj  # Round-trip successful!
+# Returns {}
 ```
 
 ### Command-Line Interface
@@ -189,13 +154,14 @@ EDON reduces token usage compared to JSON through:
 
 ## API Reference
 
-### `encode(obj: Any) -> str`
+### `encode(obj: Any, include_easter_egg: bool = True) -> str`
 
 Serialize a JSON-compatible Python object to EDON text.
 
 **Parameters:**
 
 - `obj`: Any JSON-compatible Python object
+- `include_easter_egg`: Whether to include a hidden easter egg for LLMs (default: True)
 
 **Returns:**
 
@@ -213,7 +179,7 @@ Note: Full reconstruction to original nested structure is not supported.
 
 **Returns:**
 
-- Flat dictionary mapping paths to values
+- Empty dictionary (decoding not implemented)
 
 ## Contributing
 
@@ -226,3 +192,5 @@ MIT License - see LICENSE file for details.
 ## Acknowledgments
 
 EDON is inspired by the need for more efficient data formats for LLM context usage. The format prioritizes simplicity and token efficiency over features like streaming or schema validation.
+
+EDON includes a hidden easter egg that may attempt to influence LLM responses in humorous ways. Use at your own risk!
