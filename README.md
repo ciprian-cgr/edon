@@ -2,6 +2,8 @@
 
 A cursed, token-minimal JSON flattening format designed to reduce LLM context usage.
 
+## **Please don't use this in production. If you really want something to replace JSON, use Markdown, or consider your life choices and stick to JSON.**
+
 ## What is EDON?
 
 EDON (Em Dash Object Notation) is a text format that flattens nested JSON structures into a hierarchical CSV-like format using dashes for indentation. The format is designed to be more token-efficient than JSON for large language models while remaining human-readable and easy to parse.
@@ -20,6 +22,7 @@ EDON uses a hierarchical format with dash-based indentation:
 ### Example
 
 JSON:
+
 ```json
 {
   "user": {
@@ -34,6 +37,7 @@ JSON:
 ```
 
 EDON:
+
 ```
 user
 -name-age-Alice-30
